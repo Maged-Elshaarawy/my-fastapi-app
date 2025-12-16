@@ -118,53 +118,49 @@ Delete item
 ```bash
 DELETE /api/items/{id}
 ```
-🖥️ Adminer (Optional – DB UI)
+## 🖥️ Adminer (Optional – DB UI)
 
-If enabled in docker-compose.yml:
+If Adminer is enabled in `docker-compose.yml`:
 
-URL:
+**URL**
 
 http://localhost:8090
 
+**Credentials**
+- **System:** PostgreSQL
+- **Server:** db
+- **Username:** user
+- **Password:** pass
+- **Database:** mydb
 
-Credentials:
+---
 
-System: PostgreSQL
+## 🔐 Security Notes
 
-Server: db
+- The frontend never accesses the database directly
+- All database access goes through FastAPI
+- Credentials should be moved to environment variables in production
+- Do not expose PostgreSQL to the public internet
 
-Username: user
+---
 
-Password: pass
+## 📦 Production Notes
 
-Database: mydb
+For production deployment:
+- Use HTTPS (Let’s Encrypt)
+- Use a VPS or Cloudflare Tunnel
+- Add proper logging and monitoring
+- Use Alembic for database migrations
 
-🔐 Security Notes
+---
 
-The frontend never accesses the database directly
+## 🧑‍💻 Author
 
-All DB access goes through FastAPI
+**Maged Elshaarawy**
 
-Credentials should be moved to environment variables for production
+---
 
-Do not expose PostgreSQL to the public internet
-
-📦 Production Notes
-
-For production:
-
-Use HTTPS (Let’s Encrypt)
-
-Use a VPS or Cloudflare Tunnel
-
-Add proper logging & monitoring
-
-Use Alembic for migrations
-
-🧑‍💻 Author
-
-Maged Elshaarawy
-
-📜 License
+## 📜 License
 
 This project is licensed for learning and demonstration purposes.
+
