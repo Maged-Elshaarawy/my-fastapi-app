@@ -77,12 +77,6 @@ Frontend:
 
 http://localhost
 
-
-or
-
-http://<VM-IP>
-
-
 Database health check:
 ```
 /db-check
