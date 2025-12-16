@@ -40,6 +40,7 @@ PostgreSQL
 ---
 
 ## 📁 Project Structure
+
 .
 ├── app/
 │ ├── main.py
@@ -107,17 +108,21 @@ SELECT * FROM items;
 ```
 🔌 API Endpoints
 Get all items
+```bash
 GET /api/items
-
+```
 Create item
+```bash
 POST /api/items?name=ItemName
-
+```
 Update item
+```bash
 PUT /api/items/{id}?name=NewName
-
+```
 Delete item
+```bash
 DELETE /api/items/{id}
-
+```
 🖥️ Adminer (Optional – DB UI)
 
 If enabled in docker-compose.yml:
