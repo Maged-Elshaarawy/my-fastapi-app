@@ -40,18 +40,18 @@ PostgreSQL
 ---
 
 ## 📁 Project Structure
-
 .
-├── app/
-│ ├── main.py
-│ └── database.py
-├── frontend/
-│ └── index.html
+├── app
+│   ├── main.py
+│   └── database.py
+├── frontend
+│   └── index.html
 ├── nginx.conf
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
 └── README.md
+
 ---
 
 ## ⚙️ Setup & Run
