@@ -32,20 +32,12 @@ services:
       - ./frontend:/usr/share/nginx/html:ro
     depends_on:
       - python-service
-<<<<<<< HEAD
-=======
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     command: tunnel --url http://nginx:80
     depends_on:
       - nginx
-      
-  certbot:
-    image: certbot/certbot
-    volumes:
-      - ./certbot/www:/var/www/certbot
-      - ./certbot/conf:/etc/letsencrypt
->>>>>>> fe61863 (added cloudflared)
 
   adminer:
     image: adminer

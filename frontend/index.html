@@ -1,16 +1,47 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>My App</title>
+  <meta charset="UTF-8">
+  <title>Items CRUD</title>
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    li { margin-bottom: 5px; }
+    button { margin-left: 5px; }
+  </style>
 </head>
 <body>
-  <div id="app">
-    <h1>{{ message }}</h1>
-    <button @click="checkApi">Check API</button>
-  </div>
 
-  <script src="/js/app.js"></script>
+<div id="app">
+  <h1>Items</h1>
+
+  <!-- Add -->
+  <input v-model="newItem" placeholder="New item">
+  <button @click="addItem">Add</button>
+
+  <hr>
+
+  <!-- List -->
+  <ul>
+    <li v-for="item in items" :key="item.id">
+      <span v-if="editId !== item.id">{{ item.name }}</span>
+
+      <input v-else v-model="editName">
+
+      <button v-if="editId !== item.id" @click="startEdit(item)">
+        Edit
+      </button>
+
+      <button v-else @click="updateItem(item.id)">
+        Save
+      </button>
+
+      <button @click="deleteItem(item.id)">Delete</button>
+    </li>
+  </ul>
+</div>
+
+<script src="/js/app.js"></script>
 </body>
 </html>
 
