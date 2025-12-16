@@ -40,6 +40,7 @@ PostgreSQL
 ---
 
 ## 📁 Project Structure
+```text
 .
 ├── app
 │   ├── main.py
@@ -51,7 +52,7 @@ PostgreSQL
 ├── docker-compose.yml
 ├── requirements.txt
 └── README.md
-
+```
 ---
 
 ## ⚙️ Setup & Run
