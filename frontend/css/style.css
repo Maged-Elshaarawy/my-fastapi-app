@@ -74,3 +74,51 @@ li {
 .actions button {
   margin-left: 6px;
 }
+
+/* Dark mode */
+body.dark {
+  background: #0f172a;
+  color: #e5e7eb;
+}
+
+body.dark .container {
+  background: #020617;
+  box-shadow: none;
+}
+
+body.dark input {
+  background: #020617;
+  color: #e5e7eb;
+  border: 1px solid #334155;
+}
+
+body.dark li {
+  border-color: #334155;
+}
+
+body.dark button.primary {
+  background: #3b82f6;
+}
+
+body.dark button.secondary {
+  background: #475569;
+}
+
+body.dark button.danger {
+  background: #ef4444;
+}
+.theme-toggle {
+  float: right;
+  background: #fff;
+  border: 1px solid #ccc;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #000;
+}
+
+body.dark .theme-toggle {
+  background: #1e293b;
+  border: 1px solid #475569;
+  color: #e5e7eb;
+}

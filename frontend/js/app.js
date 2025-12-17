@@ -3,19 +3,30 @@ const { createApp } = Vue;
 createApp({
   data() {
     return {
-      loading: false,
       items: [],
       newItem: "",
       editId: null,
       editName: "",
+      darkMode: localStorage.getItem("darkMode") === "true",
     };
   },
 
   mounted() {
     this.fetchItems();
+    this.applyTheme();
   },
 
   methods: {
+    applyTheme() {
+      document.body.classList.toggle("dark", this.darkMode);
+      localStorage.setItem("darkMode", this.darkMode);
+    },
+
+    toggleDarkMode() {
+      this.darkMode = !this.darkMode;
+      this.applyTheme();
+    },
+
     async fetchItems() {
       const res = await fetch("/api/items");
       this.items = await res.json();
@@ -55,14 +66,7 @@ createApp({
       if (!confirm("Are you sure you want to delete this item?")) return;
 
       await fetch(`/api/items/${id}`, { method: "DELETE" });
-
       this.fetchItems();
-      {
-        this.loading = true;
-        const res = await fetch("/api/items");
-        this.items = await res.json();
-        this.loading = false;
-      }
     },
   },
 }).mount("#app");

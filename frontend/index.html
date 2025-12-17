@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8" />
   <title>Items Manager</title>
@@ -10,56 +11,58 @@
   <!-- CSS -->
   <link rel="stylesheet" href="/css/style.css">
 </head>
+
 <body>
 
-<div id="app" class="container">
+  <div id="app" class="container">
 
-  <h1>Items</h1>
-
-  <!-- Add item -->
-<form class="form" @submit.prevent="addItem">
-  <input v-model="newItem" placeholder="Item name">
-  <button class="primary" type="submit" :disabled="!newItem">
-    Add
+    <!-- Dark mode toggle -->
+     <button
+    type="button"
+    @click="toggleDarkMode"
+    class="theme-toggle"
+  >
+    {{ darkMode ? "☀️ Light" : "🌙 Dark" }}
   </button>
-</form>
 
-  <!-- Loading -->
-  <p v-if="items.length === 0">No items yet</p>
+    <h1>Items Manager</h1>
 
-  <!-- List -->
-  <ul>
-    <li v-for="item in items" :key="item.id">
-      <span v-if="editId !== item.id">{{ item.name }}</span>
-      <input v-else v-model="editName">
+    <!-- Add item -->
+    <form class="form" @submit.prevent="addItem">
+      <input v-model="newItem" placeholder="Item name">
+      <button class="primary" type="submit" :disabled="!newItem">
+        Add
+      </button>
+    </form>
 
-      <div class="actions">
-        <button
-          v-if="editId !== item.id"
-          class="secondary"
-          @click="startEdit(item)">
-          Edit
-        </button>
+    <!-- Empty state -->
+    <p v-if="items.length === 0">No items yet</p>
 
-        <button
-          v-else
-          class="primary"
-          @click="updateItem(item.id)">
-          Save
-        </button>
+    <!-- List -->
+    <ul v-else>
+      <li v-for="item in items" :key="item.id">
+        <span v-if="editId !== item.id">{{ item.name }}</span>
+        <input v-else v-model="editName">
 
-        <button
-          class="danger"
-          @click="deleteItem(item.id)">
-          Delete
-        </button>
-      </div>
-    </li>
-  </ul>
+        <div class="actions">
+          <button v-if="editId !== item.id" class="secondary" @click="startEdit(item)">
+            Edit
+          </button>
 
-</div>
+          <button v-else class="primary" @click="updateItem(item.id)">
+            Save
+          </button>
 
-<script src="/js/app.js"></script>
+          <button class="danger" @click="deleteItem(item.id)">
+            Delete
+          </button>
+        </div>
+      </li>
+    </ul>
 
+  </div>
+
+  <script src="/js/app.js"></script>
 </body>
+
 </html>
