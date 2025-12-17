@@ -6,3 +6,4 @@ pgdata/db_backup.sql
 .vscode/
 .idea/
 *.swp
+.vscode
