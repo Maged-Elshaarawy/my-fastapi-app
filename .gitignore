@@ -2,4 +2,7 @@ __pycache__/
 *.pyc
 .env
 logs/
-pgdata/
+pgdata/db_backup.sql
+.vscode/
+.idea/
+*.swp
