@@ -3,6 +3,7 @@ const { createApp } = Vue;
 createApp({
   data() {
     return {
+      loading: false
       items: [],
       newItem: "",
       editId: null,
@@ -51,12 +52,10 @@ createApp({
     },
 
     async deleteItem(id) {
-      await fetch(`/api/items/${id}`, {
-        method: "DELETE"
-      });
+      if (!confirm("Are you sure you want to delete this item?")) return;
 
+      await fetch(`/api/items/${id}`, { method: "DELETE" });
       this.fetchItems();
     }
   }
 }).mount("#app");
-
