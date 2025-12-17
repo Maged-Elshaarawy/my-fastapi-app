@@ -3,3 +3,7 @@ uvicorn
 psycopg2-binary
 sqlalchemy
 gunicorn
+pytest
+pytest-asyncio
+httpx
+flake8
