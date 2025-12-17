@@ -3,11 +3,11 @@ const { createApp } = Vue;
 createApp({
   data() {
     return {
-      loading: false
+      loading: false,
       items: [],
       newItem: "",
       editId: null,
-      editName: ""
+      editName: "",
     };
   },
 
@@ -27,7 +27,7 @@ createApp({
       await fetch("/api/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: this.newItem })
+        body: JSON.stringify({ name: this.newItem }),
       });
 
       this.newItem = "";
@@ -43,7 +43,7 @@ createApp({
       await fetch(`/api/items/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: this.editName })
+        body: JSON.stringify({ name: this.editName }),
       });
 
       this.editId = null;
@@ -55,7 +55,14 @@ createApp({
       if (!confirm("Are you sure you want to delete this item?")) return;
 
       await fetch(`/api/items/${id}`, { method: "DELETE" });
+
       this.fetchItems();
-    }
-  }
+      {
+        this.loading = true;
+        const res = await fetch("/api/items");
+        this.items = await res.json();
+        this.loading = false;
+      }
+    },
+  },
 }).mount("#app");
