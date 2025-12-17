@@ -254,3 +254,20 @@ For production deployment:
 ## 📜 License
 
 This project is licensed for learning and demonstration purposes.
+
+---
+
+## CI / CD
+
+- **What:** GitHub Actions workflow `/.github/workflows/ci.yml` runs linting, tests and (on `main`) builds and optionally pushes a Docker image.
+- **Secrets (for push):** add `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` in the repository Settings → Secrets to enable image push to Docker Hub.
+- **Local checks:** you can run the same basic checks locally:
+
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+flake8 app || true
+pytest -q || true
+docker build -t my-fastapi-app:local .
+```
+- **Recommended workflow:** push changes to a feature branch, open a PR to `main`, let Actions run, then merge when passing.
