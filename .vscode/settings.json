@@ -1,0 +1,25 @@
+{
+    "python.testing.unittestArgs": [
+      "-v",
+      "-s",
+      "./app",
+      "-p",
+      "*test.py"
+    ],
+    "python.testing.pytestEnabled": false,
+    "python.testing.unittestEnabled": true,
+  
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": true
+    },
+  
+    "python.languageServer": "Pylance",
+  
+    "files.exclude": {
+      "**/__pycache__": true
+    },
+  
+    "terminal.integrated.defaultProfile.linux": "bash"
+  }
+  
