@@ -17,12 +17,12 @@
   <h1>Items</h1>
 
   <!-- Add item -->
-  <div class="form">
-    <input v-model="newItem" placeholder="Item name">
-    <button class="primary" @click="addItem" :disabled="!newItem">
-      Add
-    </button>
-  </div>
+<form class="form" @submit.prevent="addItem">
+  <input v-model="newItem" placeholder="Item name">
+  <button class="primary" type="submit" :disabled="!newItem">
+    Add
+  </button>
+</form>
 
   <!-- Loading -->
   <p v-if="items.length === 0">No items yet</p>
