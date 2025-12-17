@@ -11,7 +11,11 @@
   
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
+<<<<<<< Updated upstream
       "source.fixAll.eslint": true
+=======
+      "source.fixAll.eslint": "explicit"
+>>>>>>> Stashed changes
     },
   
     "python.languageServer": "Pylance",
