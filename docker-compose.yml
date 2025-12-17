@@ -7,6 +7,10 @@ services:
       POSTGRES_DB: mydb
       POSTGRES_USER: user
       POSTGRES_PASSWORD: pass
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./db_backup.sql:/docker-entrypoint-initdb.d/02-backup.sql:ro
+      - db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d mydb"]
       interval: 5s
@@ -45,4 +49,7 @@ services:
       - "8090:8080"
     depends_on:
       - db
+
+volumes:
+  db_data:
 
