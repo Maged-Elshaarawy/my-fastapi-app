@@ -8,12 +8,21 @@ createApp({
       editId: null,
       editName: "",
       darkMode: localStorage.getItem("darkMode") === "true",
+      loading: false,
+      error: null,
     };
   },
 
   mounted() {
     this.fetchItems();
     this.applyTheme();
+    // Load theme preference on mount
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      if (localStorage.getItem("darkMode") === null) {
+        this.darkMode = true;
+        this.applyTheme();
+      }
+    }
   },
 
   methods: {
@@ -28,45 +37,90 @@ createApp({
     },
 
     async fetchItems() {
-      const res = await fetch("/api/items");
-      this.items = await res.json();
+      try {
+        this.loading = true;
+        this.error = null;
+        const res = await fetch("/api/items");
+        if (!res.ok) throw new Error("Failed to fetch items");
+        this.items = await res.json();
+      } catch (err) {
+        this.error = "Failed to load items";
+        console.error(err);
+      } finally {
+        this.loading = false;
+      }
     },
 
     async addItem() {
-      if (!this.newItem) return;
+      if (!this.newItem.trim()) return;
 
-      await fetch("/api/items", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: this.newItem }),
-      });
-
-      this.newItem = "";
-      this.fetchItems();
+      try {
+        this.loading = true;
+        this.error = null;
+        const res = await fetch("/api/items", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: this.newItem.trim() }),
+        });
+        if (!res.ok) throw new Error("Failed to add item");
+        this.newItem = "";
+        await this.fetchItems();
+      } catch (err) {
+        this.error = "Failed to add item";
+        console.error(err);
+      } finally {
+        this.loading = false;
+      }
     },
 
     startEdit(item) {
       this.editId = item.id;
       this.editName = item.name;
+      // Focus the input after Vue updates
+      this.$nextTick(() => {
+        const input = document.querySelector('.item-edit-input');
+        if (input) input.focus();
+      });
     },
 
     async updateItem(id) {
-      await fetch(`/api/items/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: this.editName }),
-      });
+      if (!this.editName.trim()) return;
 
-      this.editId = null;
-      this.editName = "";
-      this.fetchItems();
+      try {
+        this.loading = true;
+        this.error = null;
+        const res = await fetch(`/api/items/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: this.editName.trim() }),
+        });
+        if (!res.ok) throw new Error("Failed to update item");
+        this.editId = null;
+        this.editName = "";
+        await this.fetchItems();
+      } catch (err) {
+        this.error = "Failed to update item";
+        console.error(err);
+      } finally {
+        this.loading = false;
+      }
     },
 
     async deleteItem(id) {
       if (!confirm("Are you sure you want to delete this item?")) return;
 
-      await fetch(`/api/items/${id}`, { method: "DELETE" });
-      this.fetchItems();
+      try {
+        this.loading = true;
+        this.error = null;
+        const res = await fetch(`/api/items/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Failed to delete item");
+        await this.fetchItems();
+      } catch (err) {
+        this.error = "Failed to delete item";
+        console.error(err);
+      } finally {
+        this.loading = false;
+      }
     },
   },
 }).mount("#app");

@@ -1,65 +1,117 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Items Manager</title>
 
   <!-- Vue -->
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- CSS -->
   <link rel="stylesheet" href="/css/style.css">
 </head>
 
 <body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-content">
+        <h1>📋 Items Manager</h1>
+        <button
+          type="button"
+          @click="toggleDarkMode"
+          class="theme-toggle"
+          :title="darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+        >
+          {{ darkMode ? "☀️" : "🌙" }}
+        </button>
+      </div>
+    </header>
 
-  <div id="app" class="container">
+    <!-- Main Content -->
+    <main class="container">
+      <!-- Add Item Form -->
+      <section class="form-section">
+        <form class="form" @submit.prevent="addItem">
+          <div class="form-group">
+            <input
+              v-model="newItem"
+              type="text"
+              placeholder="What's on your mind?"
+              class="form-input"
+            />
+            <button class="btn btn-primary" type="submit" :disabled="!newItem">
+              ➕ Add
+            </button>
+          </div>
+        </form>
+      </section>
 
-    <!-- Dark mode toggle -->
-     <button
-    type="button"
-    @click="toggleDarkMode"
-    class="theme-toggle"
-  >
-    {{ darkMode ? "☀️ Light" : "🌙 Dark" }}
-  </button>
-
-    <h1>Items Manager</h1>
-
-    <!-- Add item -->
-    <form class="form" @submit.prevent="addItem">
-      <input v-model="newItem" placeholder="Item name">
-      <button class="primary" type="submit" :disabled="!newItem">
-        Add
-      </button>
-    </form>
-
-    <!-- Empty state -->
-    <p v-if="items.length === 0">No items yet</p>
-
-    <!-- List -->
-    <ul v-else>
-      <li v-for="item in items" :key="item.id">
-        <span v-if="editId !== item.id">{{ item.name }}</span>
-        <input v-else v-model="editName">
-
-        <div class="actions">
-          <button v-if="editId !== item.id" class="secondary" @click="startEdit(item)">
-            Edit
-          </button>
-
-          <button v-else class="primary" @click="updateItem(item.id)">
-            Save
-          </button>
-
-          <button class="danger" @click="deleteItem(item.id)">
-            Delete
-          </button>
+      <!-- Items List -->
+      <section class="items-section">
+        <!-- Empty State -->
+        <div v-if="items.length === 0" class="empty-state">
+          <p>✨ No items yet. Start by adding one above!</p>
         </div>
-      </li>
-    </ul>
 
+        <!-- Items List -->
+        <ul v-else class="items-list">
+          <li v-for="item in items" :key="item.id" class="item-card">
+            <div class="item-content">
+              <span v-if="editId !== item.id" class="item-text">{{ item.name }}</span>
+              <input
+                v-else
+                v-model="editName"
+                type="text"
+                class="item-edit-input"
+                @keyup.enter="updateItem(item.id)"
+                @keyup.escape="editId = null"
+              />
+            </div>
+
+            <div class="item-actions">
+              <button
+                v-if="editId !== item.id"
+                class="btn btn-secondary"
+                @click="startEdit(item)"
+                title="Edit item"
+              >
+                ✏️ Edit
+              </button>
+
+              <button
+                v-else
+                class="btn btn-primary"
+                @click="updateItem(item.id)"
+                title="Save changes"
+              >
+                💾 Save
+              </button>
+
+              <button
+                class="btn btn-danger"
+                @click="deleteItem(item.id)"
+                title="Delete item"
+              >
+                🗑️ Delete
+              </button>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Stats Footer -->
+      <footer class="stats-footer" v-if="items.length > 0">
+        <p>Total items: <strong>{{ items.length }}</strong></p>
+      </footer>
+    </main>
   </div>
 
   <script src="/js/app.js"></script>
