@@ -9,9 +9,9 @@ from schemas import ItemCreate, ItemUpdate, ItemOut
 app = FastAPI()
 
 # Mount static files for frontend
-static_dir = Path(__file__).parent.parent / "static"
-if static_dir.exists():
-    app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
+static_dir = Path("/app/static")
+app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+
 
 def get_db():
     db = SessionLocal()
