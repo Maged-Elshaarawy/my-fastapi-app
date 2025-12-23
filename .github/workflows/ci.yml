@@ -86,8 +86,8 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ${{ env.DOCKERHUB_USERNAME }}/project:latest
-            ${{ env.DOCKERHUB_USERNAME }}/project:${{ github.sha }}
+            ${{ env.DOCKERHUB_USERNAME }}/project-api:latest
+            ${{ env.DOCKERHUB_USERNAME }}/project-api:${{ github.sha }}
       - name: Build and push Frontend image
         if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
         uses: docker/build-push-action@v4
@@ -97,8 +97,8 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ${{ env.DOCKERHUB_USERNAME }}/project:latest
-            ${{ env.DOCKERHUB_USERNAME }}/project:${{ github.sha }}      
+            ${{ env.DOCKERHUB_USERNAME }}/project-frontend:latest
+            ${{ env.DOCKERHUB_USERNAME }}/project-frontend:${{ github.sha }}
 
       - name: Skip Docker push notice
         if: env.DOCKERHUB_USERNAME == '' || env.DOCKERHUB_TOKEN == ''
