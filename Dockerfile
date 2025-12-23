@@ -9,6 +9,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY app .
+COPY frontend /app/static
 
 EXPOSE 8000
 

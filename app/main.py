@@ -1,10 +1,17 @@
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from pathlib import Path
 from database import SessionLocal
 from schemas import ItemCreate, ItemUpdate, ItemOut
 
 app = FastAPI()
+
+# Mount static files for frontend
+static_dir = Path(__file__).parent.parent / "static"
+if static_dir.exists():
+    app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
 
 def get_db():
     db = SessionLocal()

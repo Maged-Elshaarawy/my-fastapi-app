@@ -369,3 +369,62 @@ body.dark .stats-footer {
     flex: 1;
   }
 }
+
+/* ===== Error Banner ===== */
+.error-banner {
+  background: #ffefef;
+  color: #8b1e1e;
+  border: 1px solid #ffd6d6;
+  padding: 12px 16px;
+  border-radius: 8px;
+  max-width: 800px;
+  margin: 12px auto;
+  text-align: center;
+}
+
+body.dark .error-banner {
+  background: rgba(220, 38, 38, 0.12);
+  color: #fecaca;
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+/* ===== Spinner ===== */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  margin-right: 8px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Skeletons ===== */
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-card {
+  height: 56px;
+  border-radius: 8px;
+  background: linear-gradient(90deg,#f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
+  background-size: 200% 100%;
+  animation: pulse 1.2s linear infinite;
+}
+
+@keyframes pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+body.dark .skeleton-card {
+  background: linear-gradient(90deg,#0b1220 0%, #111827 50%, #0b1220 100%);
+}
+

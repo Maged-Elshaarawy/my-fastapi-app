@@ -10,6 +10,8 @@ createApp({
       darkMode: localStorage.getItem("darkMode") === "true",
       loading: false,
       error: null,
+      action: null,
+      deletingId: null,
     };
   },
 
@@ -56,6 +58,7 @@ createApp({
 
       try {
         this.loading = true;
+        this.action = "add";
         this.error = null;
         const res = await fetch("/api/items", {
           method: "POST",
@@ -70,6 +73,7 @@ createApp({
         console.error(err);
       } finally {
         this.loading = false;
+        this.action = null;
       }
     },
 
@@ -83,11 +87,17 @@ createApp({
       });
     },
 
+    cancelEdit() {
+      this.editId = null;
+      this.editName = "";
+    },
+
     async updateItem(id) {
       if (!this.editName.trim()) return;
 
       try {
         this.loading = true;
+        this.action = "edit";
         this.error = null;
         const res = await fetch(`/api/items/${id}`, {
           method: "PUT",
@@ -103,6 +113,7 @@ createApp({
         console.error(err);
       } finally {
         this.loading = false;
+        this.action = null;
       }
     },
 
@@ -110,7 +121,7 @@ createApp({
       if (!confirm("Are you sure you want to delete this item?")) return;
 
       try {
-        this.loading = true;
+        this.deletingId = id;
         this.error = null;
         const res = await fetch(`/api/items/${id}`, { method: "DELETE" });
         if (!res.ok) throw new Error("Failed to delete item");
@@ -119,7 +130,7 @@ createApp({
         this.error = "Failed to delete item";
         console.error(err);
       } finally {
-        this.loading = false;
+        this.deletingId = null;
       }
     },
   },

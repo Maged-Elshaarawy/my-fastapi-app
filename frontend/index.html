@@ -37,18 +37,24 @@
 
     <!-- Main Content -->
     <main class="container">
+      <!-- Error banner -->
+      <div v-if="error" class="error-banner" role="alert" aria-live="assertive">{{ error }}</div>
+
       <!-- Add Item Form -->
       <section class="form-section">
-        <form class="form" @submit.prevent="addItem">
+        <form class="form" @submit.prevent="addItem" aria-label="Add item form">
           <div class="form-group">
             <input
               v-model="newItem"
               type="text"
               placeholder="What's on your mind?"
               class="form-input"
+              aria-label="New item name"
             />
-            <button class="btn btn-primary" type="submit" :disabled="!newItem">
-              ➕ Add
+            <button class="btn btn-primary" type="submit" :disabled="loading || !newItem.trim()" aria-disabled="loading || !newItem.trim()">
+              <span v-if="loading && action === 'add'" class="spinner" aria-hidden="true"></span>
+              <span v-if="!loading || action !== 'add'">➕ Add</span>
+              <span v-else>Adding...</span>
             </button>
           </div>
         </form>
@@ -56,14 +62,19 @@
 
       <!-- Items List -->
       <section class="items-section">
+        <!-- Skeleton loader when loading and no items loaded yet -->
+        <div v-if="loading && items.length === 0" class="skeleton-list" aria-hidden="true">
+          <div class="skeleton-card" v-for="n in 3" :key="n"></div>
+        </div>
+
         <!-- Empty State -->
-        <div v-if="items.length === 0" class="empty-state">
+        <div v-else-if="!loading && items.length === 0" class="empty-state">
           <p>✨ No items yet. Start by adding one above!</p>
         </div>
 
         <!-- Items List -->
         <ul v-else class="items-list">
-          <li v-for="item in items" :key="item.id" class="item-card">
+          <li v-for="item in items" :key="item.id" class="item-card" :aria-label="`Item ${item.name}`">
             <div class="item-content">
               <span v-if="editId !== item.id" class="item-text">{{ item.name }}</span>
               <input
@@ -72,7 +83,8 @@
                 type="text"
                 class="item-edit-input"
                 @keyup.enter="updateItem(item.id)"
-                @keyup.escape="editId = null"
+                @keyup.escape="cancelEdit"
+                aria-label="Edit item name"
               />
             </div>
 
@@ -82,6 +94,7 @@
                 class="btn btn-secondary"
                 @click="startEdit(item)"
                 title="Edit item"
+                :disabled="loading"
               >
                 ✏️ Edit
               </button>
@@ -91,16 +104,22 @@
                 class="btn btn-primary"
                 @click="updateItem(item.id)"
                 title="Save changes"
+                :disabled="loading"
               >
-                💾 Save
+                <span v-if="loading && action === 'edit'" class="spinner" aria-hidden="true"></span>
+                <span v-if="!loading || action !== 'edit'">💾 Save</span>
+                <span v-else>Saving...</span>
               </button>
 
               <button
                 class="btn btn-danger"
                 @click="deleteItem(item.id)"
                 title="Delete item"
+                :disabled="deletingId === item.id"
               >
-                🗑️ Delete
+                <span v-if="deletingId === item.id" class="spinner" aria-hidden="true"></span>
+                <span v-if="deletingId !== item.id">🗑️ Delete</span>
+                <span v-else>Deleting...</span>
               </button>
             </div>
           </li>
