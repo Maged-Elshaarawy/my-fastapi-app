@@ -14,6 +14,15 @@ def get_db():
     finally:
         db.close()
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+@app.get("/ready")
+def ready(db: Session = Depends(get_db)):
+    db.execute(text("SELECT 1"))
+    return {"status": "ready"}
+
 
 @app.get("/api/items", response_model=list[ItemOut])
 def get_items(db: Session = Depends(get_db)):
