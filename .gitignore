@@ -9,3 +9,7 @@ pgdata/db_backup.sql
 .vscode
 db_backup.sql
 *.pem
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
