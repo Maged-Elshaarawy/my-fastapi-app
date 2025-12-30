@@ -1,0 +1,148 @@
+- name: Deploy FastAPI app with Docker and k3d
+  hosts: web
+  become: yes
+
+  vars:
+    app_dir: /opt/my-fastapi-app
+    repo_url: https://github.com/Maged-Elshaarawy/my-fastapi-app.git
+    k3d_version: v5.6.0
+    kubectl_version: v1.30.0
+    k3d_cluster_name: fastapi-cluster
+
+  tasks:
+    # ---------------- System Prep ----------------
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    # ---------------- CLEAN OLD DOCKER STATE ----------------
+    - name: Remove old Docker packages
+      apt:
+        name:
+          - docker
+          - docker-engine
+          - docker.io
+          - docker-ce
+          - docker-ce-cli
+          - containerd
+          - runc
+        state: absent
+        purge: yes
+
+    - name: Remove old Docker repo files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/sources.list.d/docker.list
+        - /etc/apt/sources.list.d/docker-ce.list
+
+    - name: Remove old Docker GPG keys
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /usr/share/keyrings/docker-archive-keyring.gpg
+        - /etc/apt/keyrings/docker.gpg
+
+    - name: Clean apt cache
+      command: apt-get clean
+
+    # ---------------- Base Dependencies ----------------
+    - name: Install base dependencies
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - git
+        state: present
+
+    # ---------------- Docker (CORRECT WAY) ----------------
+    - name: Create Docker keyring directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Add Docker GPG key
+      shell: |
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+        gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      args:
+        creates: /etc/apt/keyrings/docker.gpg
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: >
+          deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg]
+          https://download.docker.com/linux/ubuntu
+          {{ ansible_distribution_release }} stable
+        state: present
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: latest
+        update_cache: yes
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Verify Docker version
+      command: docker version
+
+    # ---------------- kubectl ----------------
+    - name: Install kubectl
+      shell: |
+        curl -LO https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl
+        install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+      args:
+        creates: /usr/local/bin/kubectl
+
+    - name: Verify kubectl
+      command: kubectl version --client
+
+    # ---------------- k3d ----------------
+    - name: Install k3d
+      shell: |
+        curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | \
+        TAG={{ k3d_version }} bash
+      args:
+        creates: /usr/local/bin/k3d
+
+    - name: Verify k3d
+      command: k3d version
+
+    # ---------------- App ----------------
+    - name: Create app directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+
+    - name: Clone FastAPI repository
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        force: yes
+
+    # ---------------- k3d Cluster ----------------
+    - name: Create k3d cluster
+      shell: k3d cluster create {{ k3d_cluster_name }}
+      args:
+        creates: "/root/.k3d/kubeconfig-{{ k3d_cluster_name }}"
+
+    # ---------------- Docker Compose ----------------
+    - name: Launch Docker containers
+      shell: docker compose up -d
+      args:
+        chdir: "{{ app_dir }}"

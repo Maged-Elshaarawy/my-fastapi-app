@@ -8,3 +8,4 @@ pgdata/db_backup.sql
 *.swp
 .vscode
 db_backup.sql
+*.pem
