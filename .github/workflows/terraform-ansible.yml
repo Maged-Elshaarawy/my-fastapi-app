@@ -116,32 +116,74 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
           AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
         run: |
-          echo "Checking AWS credentials..."
-          ls -la ~/.aws/
-          echo "AWS_REGION: $AWS_REGION"
-          echo "AWS_ACCESS_KEY_ID is set: $([ -n "$AWS_ACCESS_KEY_ID" ] && echo 'yes' || echo 'no')"
-          echo "AWS_SECRET_ACCESS_KEY is set: $([ -n "$AWS_SECRET_ACCESS_KEY" ] && echo 'yes' || echo 'no')"
-          echo "AWS_SESSION_TOKEN is set: $([ -n "$AWS_SESSION_TOKEN" ] && echo 'yes' || echo 'no')"
+          echo "=== Checking AWS credentials ==="
+          ls -la ~/.aws/ || echo "~/.aws directory not found"
+          echo ""
+          echo "=== Environment Variables ==="
+          echo "AWS_REGION: ${AWS_REGION:-NOT SET}"
+          echo "AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:+SET (${#AWS_ACCESS_KEY_ID} chars)}"
+          echo "AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:+SET (${#AWS_SECRET_ACCESS_KEY} chars)}"
+          echo "AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:+SET (${#AWS_SESSION_TOKEN} chars)}"
+          echo ""
+          echo "=== Credentials File Content (masked) ==="
+          if [ -f ~/.aws/credentials ]; then
+            echo "File exists. Structure:"
+            sed 's/=.*/=***MASKED***/' ~/.aws/credentials
+            echo ""
+            echo "Checking file format..."
+            if grep -q "^\[default\]" ~/.aws/credentials; then
+              echo "✓ [default] section found"
+            else
+              echo "✗ [default] section NOT found"
+            fi
+            if grep -qi "aws_access_key_id" ~/.aws/credentials; then
+              echo "✓ aws_access_key_id found"
+            else
+              echo "✗ aws_access_key_id NOT found"
+            fi
+            if grep -qi "aws_secret_access_key" ~/.aws/credentials; then
+              echo "✓ aws_secret_access_key found"
+            else
+              echo "✗ aws_secret_access_key NOT found"
+            fi
+          else
+            echo "✗ Credentials file NOT found"
+          fi
+          echo ""
+          echo "=== Config File Content ==="
+          if [ -f ~/.aws/config ]; then
+            cat ~/.aws/config
+          else
+            echo "✗ Config file NOT found"
+          fi
+          echo ""
           # Test AWS credentials using AWS CLI with environment variables
           if command -v aws &> /dev/null; then
-            echo "Testing AWS credentials with environment variables..."
-            export AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID"
-            export AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"
-            export AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN"
-            export AWS_REGION="$AWS_REGION"
-            export AWS_DEFAULT_REGION="$AWS_REGION"
+            echo "=== Testing AWS CLI ==="
             # Test with environment variables (highest priority)
             if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ]; then
               echo "Testing with environment variables..."
-              aws sts get-caller-identity --region "$AWS_REGION" || echo "Warning: AWS CLI test with env vars failed"
+              export AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID"
+              export AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"
+              [ -n "$AWS_SESSION_TOKEN" ] && export AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN"
+              export AWS_REGION="${AWS_REGION:-us-west-2}"
+              export AWS_DEFAULT_REGION="$AWS_REGION"
+              aws sts get-caller-identity --region "$AWS_REGION" 2>&1 && echo "✓ AWS CLI test with env vars: SUCCESS" || echo "✗ AWS CLI test with env vars: FAILED"
+            else
+              echo "✗ Environment variables not set, skipping env var test"
             fi
-            # Also test with credentials file
+            # Test with credentials file (unset env vars first)
+            echo ""
             echo "Testing with credentials file..."
             unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
-            aws sts get-caller-identity --region "$AWS_REGION" || echo "Warning: AWS CLI test with credentials file failed, but continuing..."
+            export AWS_REGION="${AWS_REGION:-us-west-2}"
+            export AWS_DEFAULT_REGION="$AWS_REGION"
+            aws sts get-caller-identity --region "$AWS_REGION" 2>&1 && echo "✓ AWS CLI test with credentials file: SUCCESS" || echo "✗ AWS CLI test with credentials file: FAILED (this is OK if env vars work)"
           else
             echo "AWS CLI not installed, skipping credential test"
           fi
+          echo ""
+          echo "Note: Terraform will use environment variables (highest priority), so AWS CLI test failure is OK if env vars are set."
 
       - name: Debug Terraform environment
         working-directory: terraform
