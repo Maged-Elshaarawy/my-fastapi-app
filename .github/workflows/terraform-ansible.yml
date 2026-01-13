@@ -33,6 +33,13 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      - name: Install AWS CLI
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip -q awscliv2.zip
+          sudo ./aws/install
+          aws --version
+
       - name: Configure AWS credentials from file
         env:
           AWS_CREDENTIALS_CONTENT: ${{ secrets.AWS_CREDENTIALS_FILE }}
@@ -43,22 +50,22 @@ jobs:
             exit 1
           fi
           mkdir -p ~/.aws
-          # Write credentials file (preserve formatting)
-          cat > ~/.aws/credentials <<EOF
-          $AWS_CREDENTIALS_CONTENT
-          EOF
+          # Write credentials file (preserve exact formatting, no indentation)
+          printf '%s\n' "$AWS_CREDENTIALS_CONTENT" > ~/.aws/credentials
           chmod 600 ~/.aws/credentials
           # Set AWS_REGION in config file
-          cat > ~/.aws/config <<EOF
-          [default]
-          region = $AWS_REGION
-          EOF
+          printf '[default]\nregion = %s\n' "$AWS_REGION" > ~/.aws/config
           chmod 600 ~/.aws/config
           # Verify credentials file exists and has content
           if [ ! -s ~/.aws/credentials ]; then
             echo "Error: AWS credentials file is empty or missing"
             exit 1
           fi
+          # Show first line of credentials file (for debugging, without exposing secrets)
+          echo "Credentials file created successfully. First line:"
+          head -n 1 ~/.aws/credentials || true
+          echo "File size: $(wc -c < ~/.aws/credentials) bytes"
+          echo "Number of lines: $(wc -l < ~/.aws/credentials)"
           # Extract credentials for environment variables (as fallback)
           # Handle both formats: aws_access_key_id = VALUE and aws_access_key_id=VALUE
           AWS_ACCESS_KEY_ID=$(sed -n '/\[default\]/,/\[/p' ~/.aws/credentials | grep -i aws_access_key_id | sed 's/.*= *\(.*\)/\1/' | tr -d ' ' | head -1)
@@ -78,6 +85,11 @@ jobs:
           echo "AWS_DEFAULT_REGION=$AWS_REGION" >> $GITHUB_ENV
 
       - name: Verify AWS credentials
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
         run: |
           echo "Checking AWS credentials..."
           ls -la ~/.aws/
@@ -85,6 +97,13 @@ jobs:
           echo "AWS_ACCESS_KEY_ID is set: $([ -n "$AWS_ACCESS_KEY_ID" ] && echo 'yes' || echo 'no')"
           echo "AWS_SECRET_ACCESS_KEY is set: $([ -n "$AWS_SECRET_ACCESS_KEY" ] && echo 'yes' || echo 'no')"
           echo "AWS_SESSION_TOKEN is set: $([ -n "$AWS_SESSION_TOKEN" ] && echo 'yes' || echo 'no')"
+          # Test AWS credentials using AWS CLI
+          if command -v aws &> /dev/null; then
+            echo "Testing AWS credentials..."
+            aws sts get-caller-identity || echo "Warning: AWS CLI test failed, but continuing..."
+          else
+            echo "AWS CLI not installed, skipping credential test"
+          fi
 
       - name: Terraform init
         working-directory: terraform
