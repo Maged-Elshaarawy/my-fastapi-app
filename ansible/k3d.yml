@@ -1,0 +1,64 @@
+---
+- name: k3d & Kubernetes Setup
+  hosts: web
+  become: false
+
+  vars:
+    k3d_version: v5.6.0
+    cluster_name: fastapi-cluster
+
+  pre_tasks:
+    - name: Ensure current user is in docker group
+      become: true
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    - name: Reset SSH connection to apply docker group
+      meta: reset_connection
+
+  tasks:
+    - name: Install kubectl
+      become: true
+      get_url:
+        url: https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl
+        dest: /usr/local/bin/kubectl
+        mode: "0755"
+
+    - name: Install k3d (clean binary)
+      become: true
+      get_url:
+        url: "https://github.com/k3d-io/k3d/releases/download/{{ k3d_version }}/k3d-linux-amd64"
+        dest: /usr/local/bin/k3d
+        mode: "0755"
+
+    - name: Verify k3d & Docker context
+      shell: |
+        whoami
+        which docker
+        docker version
+        k3d version
+      environment:
+        PATH: "/usr/local/bin:/usr/bin:/bin"
+
+    - name: Check Docker API version
+      shell: docker version --format '{{ "{{.Client.APIVersion}}" }}'
+      register: docker_api
+      environment:
+        PATH: "/usr/local/bin:/usr/bin:/bin"
+
+    - name: Fail if Docker API too old
+      fail:
+        msg: "Docker API too old for k3d: {{ docker_api.stdout }}"
+      when: docker_api.stdout is version('1.44', '<')
+
+    - name: Delete old cluster if exists
+      shell: k3d cluster delete {{ cluster_name }} || true
+      environment:
+        PATH: "/usr/local/bin:/usr/bin:/bin"
+
+    - name: Create k3d cluster
+      shell: k3d cluster create {{ cluster_name }}
+      environment:
+        PATH: "/usr/local/bin:/usr/bin:/bin"

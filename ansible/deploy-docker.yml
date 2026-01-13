@@ -23,7 +23,6 @@
     - name: Update apt cache
       apt:
         update_cache: yes
-        cache_valid_time: 3600
 
     - name: Install base dependencies
       apt:
@@ -35,50 +34,131 @@
           - git
         state: present
 
-    # ---------------- Docker Install ----------------
-    - name: Ensure Docker keyrings directory exists
+    # ---------------- Clean old Docker ----------------
+    # ================= Cleanup =================
+    - name: Remove old Docker packages
+      apt:
+        name:
+          - docker
+          - docker-engine
+          - docker.io
+          - containerd
+          - runc
+        state: absent
+        purge: yes
+        autoremove: yes
+      become: true
+
+    - name: Remove old Docker data
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/docker
+        - /var/lib/containerd
+      become: true
+
+    - name: Remove snap docker if exists
+      shell: snap remove docker || true
+      become: true
+      ignore_errors: yes
+
+    # ================= Install Docker =================
+    - name: Ensure keyrings directory exists
       file:
         path: /etc/apt/keyrings
         state: directory
         mode: '0755'
+      become: true
 
     - name: Add Docker GPG key
       shell: |
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg |
         gpg --dearmor -o /etc/apt/keyrings/docker.gpg
       args:
         creates: /etc/apt/keyrings/docker.gpg
+      become: true
 
-    - name: Add Docker repository
+    - name: Add Docker repository (auto codename)
       apt_repository:
         repo: >
           deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg]
           https://download.docker.com/linux/ubuntu
-          {{ ansible_distribution_release }} stable
+          {{ ansible_lsb.codename }} stable
         state: present
         filename: docker
+      become: true
 
-    - name: Install Docker
+    - name: Install Docker CE (latest)
       apt:
-        name: "{{ docker_packages }}"
+        update_cache: yes
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
         state: latest
+      become: true
 
-    - name: Ensure Docker is running
+    - name: Enable and start Docker
       service:
         name: docker
         state: started
         enabled: yes
+      become: true
 
+    # ================= Permissions =================
     - name: Add app user to docker group
       user:
         name: "{{ app_user }}"
         groups: docker
         append: yes
+      become: true
+      
+      # ================= Fix Docker PATH for Ansible & all users =================
+    - name: Force correct docker binary for all users
+      file:
+        src: /usr/bin/docker
+        dest: /usr/local/bin/docker
+        state: link
+        force: yes
+      become: true
 
-    - name: Reset SSH connection to apply docker group
+    - name: Reset SSH connection (apply docker path fix)
       meta: reset_connection
 
-  
+    - name: Debug docker version as app user
+      shell: |
+        which docker
+        docker version
+      become_user: "{{ app_user }}"
+      environment:
+        PATH: "/usr/local/bin:/usr/bin:/bin"
+
+    # ================= Verification =================
+    - name: Verify Docker & API version
+      shell: |
+        docker version
+        docker compose version
+      become: true
+
+    - name: Stop Docker before cleanup
+      service:
+        name: docker
+        state: stopped
+      become: true
+
+    - name: Remove old Docker data
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/docker
+        - /var/lib/containerd
+      become: true
+
+
     # ---------------- kubectl ----------------
     - name: Install kubectl
       get_url:
@@ -92,21 +172,13 @@
     # ---------------- k3d ----------------
     - name: Install k3d
       shell: |
-        curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | \
+        curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh |
         TAG={{ k3d_version }} bash
       args:
         creates: /usr/local/bin/k3d
 
     - name: Verify k3d
       command: k3d version
-      
-    - name: Ensure correct ownership of app directory
-      file:
-        path: "{{ app_dir }}"
-        state: directory
-        owner: "{{ app_user }}"
-        group: "{{ app_user }}"
-        recurse: yes
 
     # ---------------- App ----------------
     - name: Create application directory
@@ -125,10 +197,12 @@
       become_user: "{{ app_user }}"
 
     # ---------------- k3d Cluster ----------------
+    - name: Delete old k3d cluster if exists
+      shell: k3d cluster delete {{ k3d_cluster_name }} || true
+      become_user: "{{ app_user }}"
+
     - name: Create k3d cluster
       shell: k3d cluster create {{ k3d_cluster_name }}
-      args:
-        creates: "/home/{{ app_user }}/.k3d/kubeconfig-{{ k3d_cluster_name }}"
       become_user: "{{ app_user }}"
 
     # ---------------- Docker Compose ----------------

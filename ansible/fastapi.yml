@@ -1,0 +1,33 @@
+---
+- name: FastAPI Application Deployment
+  hosts: web
+  become: false
+
+  vars:
+    app_dir: /opt/my-fastapi-app
+    repo_url: https://github.com/Maged-Elshaarawy/my-fastapi-app.git
+    app_user: ubuntu
+
+  tasks:
+    - name: Ensure application directory exists
+      become: true
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+
+    - name: Clone or pull FastAPI repository
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        version: main
+        update: yes
+        force: yes
+      become_user: "{{ app_user }}"
+
+    - name: Show last pull info
+      shell: git reflog -1 --date=local
+      args:
+        chdir: "{{ app_dir }}"
+      become_user: "{{ app_user }}"
