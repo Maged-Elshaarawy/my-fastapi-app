@@ -38,25 +38,80 @@ jobs:
           AWS_CREDENTIALS_CONTENT: ${{ secrets.AWS_CREDENTIALS_FILE }}
           AWS_REGION: ${{ env.AWS_REGION }}
         run: |
+          if [ -z "$AWS_CREDENTIALS_CONTENT" ]; then
+            echo "Error: AWS_CREDENTIALS_FILE secret is not set"
+            exit 1
+          fi
           mkdir -p ~/.aws
-          echo "$AWS_CREDENTIALS_CONTENT" > ~/.aws/credentials
+          # Write credentials file (preserve formatting)
+          cat > ~/.aws/credentials <<EOF
+          $AWS_CREDENTIALS_CONTENT
+          EOF
           chmod 600 ~/.aws/credentials
           # Set AWS_REGION in config file
-          echo "[default]" > ~/.aws/config
-          echo "region = $AWS_REGION" >> ~/.aws/config
+          cat > ~/.aws/config <<EOF
+          [default]
+          region = $AWS_REGION
+          EOF
           chmod 600 ~/.aws/config
+          # Verify credentials file exists and has content
+          if [ ! -s ~/.aws/credentials ]; then
+            echo "Error: AWS credentials file is empty or missing"
+            exit 1
+          fi
+          # Extract credentials for environment variables (as fallback)
+          # Handle both formats: aws_access_key_id = VALUE and aws_access_key_id=VALUE
+          AWS_ACCESS_KEY_ID=$(sed -n '/\[default\]/,/\[/p' ~/.aws/credentials | grep -i aws_access_key_id | sed 's/.*= *\(.*\)/\1/' | tr -d ' ' | head -1)
+          AWS_SECRET_ACCESS_KEY=$(sed -n '/\[default\]/,/\[/p' ~/.aws/credentials | grep -i aws_secret_access_key | sed 's/.*= *\(.*\)/\1/' | tr -d ' ' | head -1)
+          AWS_SESSION_TOKEN=$(sed -n '/\[default\]/,/\[/p' ~/.aws/credentials | grep -i aws_session_token | sed 's/.*= *\(.*\)/\1/' | tr -d ' ' | head -1)
+          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "Warning: Could not extract credentials from file, will rely on credentials file only"
+          else
+            echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> $GITHUB_ENV
+            echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> $GITHUB_ENV
+            # Session token is optional (for temporary credentials)
+            if [ -n "$AWS_SESSION_TOKEN" ]; then
+              echo "AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> $GITHUB_ENV
+            fi
+          fi
+          echo "AWS_REGION=$AWS_REGION" >> $GITHUB_ENV
+          echo "AWS_DEFAULT_REGION=$AWS_REGION" >> $GITHUB_ENV
+
+      - name: Verify AWS credentials
+        run: |
+          echo "Checking AWS credentials..."
+          ls -la ~/.aws/
+          echo "AWS_REGION: $AWS_REGION"
+          echo "AWS_ACCESS_KEY_ID is set: $([ -n "$AWS_ACCESS_KEY_ID" ] && echo 'yes' || echo 'no')"
+          echo "AWS_SECRET_ACCESS_KEY is set: $([ -n "$AWS_SECRET_ACCESS_KEY" ] && echo 'yes' || echo 'no')"
+          echo "AWS_SESSION_TOKEN is set: $([ -n "$AWS_SESSION_TOKEN" ] && echo 'yes' || echo 'no')"
 
       - name: Terraform init
         working-directory: terraform
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
         run: terraform init -input=false
 
       - name: Terraform plan
         working-directory: terraform
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
         run: terraform plan -input=false -out=tfplan
 
       - name: Terraform apply
         if: github.event_name != 'pull_request'
         working-directory: terraform
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
         run: terraform apply -input=false -auto-approve tfplan
 
       - name: Install Ansible
