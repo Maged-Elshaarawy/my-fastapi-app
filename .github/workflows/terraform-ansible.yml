@@ -158,6 +158,7 @@ jobs:
           fi
           echo ""
           # Test AWS credentials using AWS CLI with environment variables
+          CREDENTIALS_VALID=false
           if command -v aws &> /dev/null; then
             echo "=== Testing AWS CLI ==="
             # Test with environment variables (highest priority)
@@ -168,22 +169,72 @@ jobs:
               [ -n "$AWS_SESSION_TOKEN" ] && export AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN"
               export AWS_REGION="${AWS_REGION:-us-west-2}"
               export AWS_DEFAULT_REGION="$AWS_REGION"
-              aws sts get-caller-identity --region "$AWS_REGION" 2>&1 && echo "✓ AWS CLI test with env vars: SUCCESS" || echo "✗ AWS CLI test with env vars: FAILED"
+              
+              if aws sts get-caller-identity --region "$AWS_REGION" 2>&1; then
+                echo "✓ AWS CLI test with env vars: SUCCESS"
+                CREDENTIALS_VALID=true
+              else
+                ERROR_MSG=$(aws sts get-caller-identity --region "$AWS_REGION" 2>&1)
+                echo "✗ AWS CLI test with env vars: FAILED"
+                echo "Error details: $ERROR_MSG"
+                
+                # Check for specific error types
+                if echo "$ERROR_MSG" | grep -q "InvalidClientTokenId"; then
+                  echo ""
+                  echo "❌ ERROR: Invalid or expired AWS credentials!"
+                  echo "The security token included in the request is invalid."
+                  echo ""
+                  echo "This usually means:"
+                  echo "  1. The credentials have expired (if using temporary credentials from AWS SSO)"
+                  echo "  2. The credentials are incorrect"
+                  echo "  3. The session token is invalid"
+                  echo ""
+                  echo "Please update the AWS_CREDENTIALS_FILE secret in GitHub with fresh credentials."
+                  echo "If using AWS SSO, run 'aws sso login' and copy the new credentials from ~/.aws/credentials"
+                  echo ""
+                  CREDENTIALS_VALID=false
+                elif echo "$ERROR_MSG" | grep -q "ExpiredToken"; then
+                  echo ""
+                  echo "❌ ERROR: AWS credentials have expired!"
+                  echo "Please update the AWS_CREDENTIALS_FILE secret with fresh credentials."
+                  echo ""
+                  CREDENTIALS_VALID=false
+                fi
+              fi
             else
               echo "✗ Environment variables not set, skipping env var test"
             fi
-            # Test with credentials file (unset env vars first)
-            echo ""
-            echo "Testing with credentials file..."
-            unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
-            export AWS_REGION="${AWS_REGION:-us-west-2}"
-            export AWS_DEFAULT_REGION="$AWS_REGION"
-            aws sts get-caller-identity --region "$AWS_REGION" 2>&1 && echo "✓ AWS CLI test with credentials file: SUCCESS" || echo "✗ AWS CLI test with credentials file: FAILED (this is OK if env vars work)"
+            
+            # Test with credentials file (unset env vars first) - only if env vars failed
+            if [ "$CREDENTIALS_VALID" = false ] && [ -f ~/.aws/credentials ]; then
+              echo ""
+              echo "Testing with credentials file as fallback..."
+              unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+              export AWS_REGION="${AWS_REGION:-us-west-2}"
+              export AWS_DEFAULT_REGION="$AWS_REGION"
+              if aws sts get-caller-identity --region "$AWS_REGION" 2>&1; then
+                echo "✓ AWS CLI test with credentials file: SUCCESS"
+                CREDENTIALS_VALID=true
+              else
+                echo "✗ AWS CLI test with credentials file: FAILED"
+              fi
+            fi
           else
             echo "AWS CLI not installed, skipping credential test"
+            # Assume valid if we can't test
+            CREDENTIALS_VALID=true
           fi
+          
           echo ""
-          echo "Note: Terraform will use environment variables (highest priority), so AWS CLI test failure is OK if env vars are set."
+          if [ "$CREDENTIALS_VALID" = false ]; then
+            echo "⚠️  WARNING: AWS credentials validation failed!"
+            echo "Terraform will still attempt to run, but it will likely fail with the same error."
+            echo "Please update the AWS_CREDENTIALS_FILE secret with valid, non-expired credentials."
+            echo ""
+            echo "Continuing anyway to show full error details..."
+          else
+            echo "✓ AWS credentials are valid. Terraform should work correctly."
+          fi
 
       - name: Debug Terraform environment
         working-directory: terraform
