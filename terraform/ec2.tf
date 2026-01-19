@@ -6,6 +6,6 @@ resource "aws_instance" "ubuntu" {
   vpc_security_group_ids = [aws_security_group.allow_http_ssh.id]
 
   tags = {
-    Name = "ubuntu-${count.index + 1}"
+    Name = "my-fastapi-app-${count.index + 1}"
   }
 }
