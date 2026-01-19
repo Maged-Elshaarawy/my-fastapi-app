@@ -1,311 +1,55 @@
-name: Terraform & Ansible Apply
+name: Sandbox AWS Auth
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "main" ]
-  workflow_dispatch:
-
-concurrency:
-  group: terraform-ansible-${{ github.ref }}
-  cancel-in-progress: false
-
-permissions:
-  contents: read
-  id-token: write
 
 env:
-  TF_VERSION: "1.9.0"
-  ANSIBLE_VERSION: "2.17.1"
-  AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
+  AWS_REGION: us-west-2
 
 jobs:
-  infra-apply:
-    name: Terraform apply then Ansible
+  sandbox:
     runs-on: ubuntu-latest
-    environment: production
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-
-      - name: Install/Update AWS CLI
-        run: |
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip -q awscliv2.zip
-          sudo ./aws/install --update
-          aws --version
-
-      - name: Configure AWS credentials from file
+      - name: Configure AWS sandbox credentials
         env:
-          AWS_CREDENTIALS_CONTENT: ${{ secrets.AWS_CREDENTIALS_FILE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
           AWS_REGION: ${{ env.AWS_REGION }}
         run: |
-          if [ -z "$AWS_CREDENTIALS_CONTENT" ]; then
-            echo "Error: AWS_CREDENTIALS_FILE secret is not set"
-            exit 1
-          fi
+          set -e
+
           mkdir -p ~/.aws
-          # Write credentials file (preserve exact formatting, no indentation)
-          # Write content directly to file
-          echo "$AWS_CREDENTIALS_CONTENT" > ~/.aws/credentials
-          chmod 600 ~/.aws/credentials
-          # Set AWS_REGION in config file
-          printf '[default]\nregion = %s\n' "$AWS_REGION" > ~/.aws/config
-          chmod 600 ~/.aws/config
-          # Verify credentials file exists and has content
-          if [ ! -s ~/.aws/credentials ]; then
-            echo "Error: AWS credentials file is empty or missing"
-            exit 1
-          fi
-          # Show first line of credentials file (for debugging, without exposing secrets)
-          echo "Credentials file created successfully. First line:"
-          head -n 1 ~/.aws/credentials || true
-          echo "File size: $(wc -c < ~/.aws/credentials) bytes"
-          echo "Number of lines: $(wc -l < ~/.aws/credentials)"
-          # Verify file structure
-          echo "Checking credentials file structure:"
-          grep -c "^\[default\]" ~/.aws/credentials || echo "Warning: [default] section not found"
-          grep -c "aws_access_key_id" ~/.aws/credentials || echo "Warning: aws_access_key_id not found"
-          grep -c "aws_secret_access_key" ~/.aws/credentials || echo "Warning: aws_secret_access_key not found"
-          # Show file permissions
-          ls -la ~/.aws/credentials
-          # Extract credentials for environment variables (as fallback)
-          # Handle both formats: aws_access_key_id = VALUE and aws_access_key_id=VALUE
-          # Use awk for more reliable parsing
-          AWS_ACCESS_KEY_ID=$(awk '/\[default\]/,/^\[/ {if ($0 ~ /aws_access_key_id/) {gsub(/.*=/, ""); gsub(/^[ \t]+|[ \t]+$/, ""); print; exit}}' ~/.aws/credentials)
-          AWS_SECRET_ACCESS_KEY=$(awk '/\[default\]/,/^\[/ {if ($0 ~ /aws_secret_access_key/) {gsub(/.*=/, ""); gsub(/^[ \t]+|[ \t]+$/, ""); print; exit}}' ~/.aws/credentials)
-          AWS_SESSION_TOKEN=$(awk '/\[default\]/,/^\[/ {if ($0 ~ /aws_session_token/) {gsub(/.*=/, ""); gsub(/^[ \t]+|[ \t]+$/, ""); print; exit}}' ~/.aws/credentials)
-          
-          echo "Extracted credentials:"
-          echo "AWS_ACCESS_KEY_ID length: ${#AWS_ACCESS_KEY_ID}"
-          echo "AWS_SECRET_ACCESS_KEY length: ${#AWS_SECRET_ACCESS_KEY}"
-          echo "AWS_SESSION_TOKEN length: ${#AWS_SESSION_TOKEN}"
-          
-          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
-            echo "ERROR: Could not extract credentials from file!"
-            echo "Trying alternative parsing method..."
-            # Alternative method using grep and cut
-            AWS_ACCESS_KEY_ID=$(grep -A 10 '\[default\]' ~/.aws/credentials | grep -i 'aws_access_key_id' | cut -d'=' -f2 | tr -d ' ' | head -1)
-            AWS_SECRET_ACCESS_KEY=$(grep -A 10 '\[default\]' ~/.aws/credentials | grep -i 'aws_secret_access_key' | cut -d'=' -f2 | tr -d ' ' | head -1)
-            AWS_SESSION_TOKEN=$(grep -A 10 '\[default\]' ~/.aws/credentials | grep -i 'aws_session_token' | cut -d'=' -f2 | tr -d ' ' | head -1)
-            
-            if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
-              echo "ERROR: Still could not extract credentials. Please check the credentials file format."
-              exit 1
-            fi
-          fi
-          
+
+          # Write credentials file
+          cat <<EOF > ~/.aws/credentials
+          [default]
+          aws_access_key_id=$AWS_ACCESS_KEY_ID
+          aws_secret_access_key=$AWS_SECRET_ACCESS_KEY
+          aws_session_token=$AWS_SESSION_TOKEN
+          EOF
+
+          # Write config file
+          cat <<EOF > ~/.aws/config
+          [default]
+          region=$AWS_REGION
+          output=json
+          EOF
+
+          chmod 600 ~/.aws/credentials ~/.aws/config
+
+          # Export env vars for all tools
           echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> $GITHUB_ENV
           echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> $GITHUB_ENV
-          # Session token is optional (for temporary credentials)
-          if [ -n "$AWS_SESSION_TOKEN" ]; then
-            echo "AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> $GITHUB_ENV
-          fi
+          echo "AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> $GITHUB_ENV
           echo "AWS_REGION=$AWS_REGION" >> $GITHUB_ENV
           echo "AWS_DEFAULT_REGION=$AWS_REGION" >> $GITHUB_ENV
 
-      - name: Verify AWS credentials
-        env:
-          AWS_REGION: ${{ env.AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
-          AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
-        run: |
-          echo "=== Checking AWS credentials ==="
-          ls -la ~/.aws/ || echo "~/.aws directory not found"
-          echo ""
-          echo "=== Environment Variables ==="
-          echo "AWS_REGION: ${AWS_REGION:-NOT SET}"
-          echo "AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:+SET (${#AWS_ACCESS_KEY_ID} chars)}"
-          echo "AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:+SET (${#AWS_SECRET_ACCESS_KEY} chars)}"
-          echo "AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:+SET (${#AWS_SESSION_TOKEN} chars)}"
-          echo ""
-          echo "=== Credentials File Content (masked) ==="
-          if [ -f ~/.aws/credentials ]; then
-            echo "File exists. Structure:"
-            sed 's/=.*/=***MASKED***/' ~/.aws/credentials
-            echo ""
-            echo "Checking file format..."
-            if grep -q "^\[default\]" ~/.aws/credentials; then
-              echo "✓ [default] section found"
-            else
-              echo "✗ [default] section NOT found"
-            fi
-            if grep -qi "aws_access_key_id" ~/.aws/credentials; then
-              echo "✓ aws_access_key_id found"
-            else
-              echo "✗ aws_access_key_id NOT found"
-            fi
-            if grep -qi "aws_secret_access_key" ~/.aws/credentials; then
-              echo "✓ aws_secret_access_key found"
-            else
-              echo "✗ aws_secret_access_key NOT found"
-            fi
-          else
-            echo "✗ Credentials file NOT found"
-          fi
-          echo ""
-          echo "=== Config File Content ==="
-          if [ -f ~/.aws/config ]; then
-            cat ~/.aws/config
-          else
-            echo "✗ Config file NOT found"
-          fi
-          echo ""
-          # Test AWS credentials using AWS CLI with environment variables
-          CREDENTIALS_VALID=false
-          if command -v aws &> /dev/null; then
-            echo "=== Testing AWS CLI ==="
-            # Test with environment variables (highest priority)
-            if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ]; then
-              echo "Testing with environment variables..."
-              export AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID"
-              export AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"
-              [ -n "$AWS_SESSION_TOKEN" ] && export AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN"
-              export AWS_REGION="${AWS_REGION:-us-west-2}"
-              export AWS_DEFAULT_REGION="$AWS_REGION"
-              
-              if aws sts get-caller-identity --region "$AWS_REGION" 2>&1; then
-                echo "✓ AWS CLI test with env vars: SUCCESS"
-                CREDENTIALS_VALID=true
-              else
-                ERROR_MSG=$(aws sts get-caller-identity --region "$AWS_REGION" 2>&1)
-                echo "✗ AWS CLI test with env vars: FAILED"
-                echo "Error details: $ERROR_MSG"
-                
-                # Check for specific error types
-                if echo "$ERROR_MSG" | grep -q "InvalidClientTokenId"; then
-                  echo ""
-                  echo "❌ ERROR: Invalid or expired AWS credentials!"
-                  echo "The security token included in the request is invalid."
-                  echo ""
-                  echo "This usually means:"
-                  echo "  1. The credentials have expired (if using temporary credentials from AWS SSO)"
-                  echo "  2. The credentials are incorrect"
-                  echo "  3. The session token is invalid"
-                  echo ""
-                  echo "Please update the AWS_CREDENTIALS_FILE secret in GitHub with fresh credentials."
-                  echo "If using AWS SSO, run 'aws sso login' and copy the new credentials from ~/.aws/credentials"
-                  echo ""
-                  CREDENTIALS_VALID=false
-                elif echo "$ERROR_MSG" | grep -q "ExpiredToken"; then
-                  echo ""
-                  echo "❌ ERROR: AWS credentials have expired!"
-                  echo "Please update the AWS_CREDENTIALS_FILE secret with fresh credentials."
-                  echo ""
-                  CREDENTIALS_VALID=false
-                fi
-              fi
-            else
-              echo "✗ Environment variables not set, skipping env var test"
-            fi
-            
-            # Test with credentials file (unset env vars first) - only if env vars failed
-            if [ "$CREDENTIALS_VALID" = false ] && [ -f ~/.aws/credentials ]; then
-              echo ""
-              echo "Testing with credentials file as fallback..."
-              unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
-              export AWS_REGION="${AWS_REGION:-us-west-2}"
-              export AWS_DEFAULT_REGION="$AWS_REGION"
-              if aws sts get-caller-identity --region "$AWS_REGION" 2>&1; then
-                echo "✓ AWS CLI test with credentials file: SUCCESS"
-                CREDENTIALS_VALID=true
-              else
-                echo "✗ AWS CLI test with credentials file: FAILED"
-              fi
-            fi
-          else
-            echo "AWS CLI not installed, skipping credential test"
-            # Assume valid if we can't test
-            CREDENTIALS_VALID=true
-          fi
-          
-          echo ""
-          if [ "$CREDENTIALS_VALID" = false ]; then
-            echo "⚠️  WARNING: AWS credentials validation failed!"
-            echo "Terraform will still attempt to run, but it will likely fail with the same error."
-            echo "Please update the AWS_CREDENTIALS_FILE secret with valid, non-expired credentials."
-            echo ""
-            echo "Continuing anyway to show full error details..."
-          else
-            echo "✓ AWS credentials are valid. Terraform should work correctly."
-          fi
-
-      - name: Debug Terraform environment
-        working-directory: terraform
-        env:
-          AWS_REGION: ${{ env.AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
-          AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
-        run: |
-          echo "=== Terraform Environment Variables ==="
-          echo "AWS_REGION: ${AWS_REGION:-NOT SET}"
-          echo "AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:+SET (length: ${#AWS_ACCESS_KEY_ID})}"
-          echo "AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:+SET (length: ${#AWS_SECRET_ACCESS_KEY})}"
-          echo "AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:+SET (length: ${#AWS_SESSION_TOKEN})}"
-          echo "AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-NOT SET}"
-          echo ""
-          echo "=== AWS Credentials File ==="
-          if [ -f ~/.aws/credentials ]; then
-            echo "Credentials file exists"
-            head -n 2 ~/.aws/credentials | sed 's/=.*/=***HIDDEN***/'
-          else
-            echo "Credentials file NOT found"
-          fi
-          echo ""
-          echo "=== AWS Config File ==="
-          if [ -f ~/.aws/config ]; then
-            cat ~/.aws/config
-          else
-            echo "Config file NOT found"
-          fi
-
-      - name: Terraform init
-        working-directory: terraform
-        env:
-          AWS_REGION: ${{ env.AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
-          AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
-          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
-        run: terraform init -input=false
-
-      - name: Terraform plan
-        working-directory: terraform
-        env:
-          AWS_REGION: ${{ env.AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
-          AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
-          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
-        run: terraform plan -input=false -out=tfplan
-
-      - name: Terraform apply
-        if: github.event_name != 'pull_request'
-        working-directory: terraform
-        env:
-          AWS_REGION: ${{ env.AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
-          AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
-          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
-        run: terraform apply -input=false -auto-approve tfplan
-
-      - name: Install Ansible
-        if: github.event_name != 'pull_request'
-        run: |
-          python3 -m pip install --upgrade pip
-          pip install "ansible==${ANSIBLE_VERSION}"
-
-      - name: Run Ansible playbook
-        if: github.event_name != 'pull_request'
-        env:
-          ANSIBLE_HOST_KEY_CHECKING: "False"
-        run: |
-          ansible-playbook -i ansible/inventory.ini ansible/site.yml
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
