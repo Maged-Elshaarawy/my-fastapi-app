@@ -5,7 +5,7 @@ variable "aws_region" {
 
 variable "instance_count" {
   type    = number
-  default = 3
+  default = 1
 }
 variable "instance_type" {
   type    = string
