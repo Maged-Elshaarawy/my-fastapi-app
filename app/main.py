@@ -1,11 +1,15 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from database import SessionLocal
+from database import SessionLocal, engine
 from schemas import ItemCreate, ItemUpdate, ItemOut
+from models import Base
 
 app = FastAPI()
 
+@app.on_event("startup")
+def startup():
+    Base.metadata.create_all(bind=engine)
 
 def get_db():
     db = SessionLocal()
